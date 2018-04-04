@@ -144,6 +144,7 @@ static int NewTcpSocket(JNIEnv* env,jobject obj){
 static void BindSocketToPort(JNIEnv* env,jobject obj,int sd, unsigned short port){
     struct sockaddr_in address;
     //绑定socket地址
+    //memset的作用是在一段内存块中填充某个给定的值,它是对较大的结构体或数组进行清零操作的一种最快方法
     memset(&address,0, sizeof(address));
     address.sin_family=PF_INET;
     //绑定到所有地址
@@ -156,4 +157,79 @@ static void BindSocketToPort(JNIEnv* env,jobject obj,int sd, unsigned short port
         //抛出带错误号的异常
         ThrowErrnoException(env,"java/io/IOException",errno);
     }
+}
+
+static unsigned short GetSocketPort(JNIEnv* env,jobject obj,int sd){
+    unsigned short port=0;
+    struct sockaddr_in address;
+    socklen_t addressLength= sizeof(address);
+    //获取socket地址
+    if (-1==getsockname(sd, (sockaddr *) &address, &addressLength)){
+        ThrowErrnoException(env,"java/io/IOException",errno);
+    } else{
+        port=ntohs(address.sin_port);
+        LogMessage(env,obj,"Bind to random port %hu.",port);
+    }
+    return port;
+}
+
+static void ListenOnSocket(JNIEnv* env,jobject obj,int sd,int backlog){
+    //监听给定backlog的socket
+    LogMessage(env,obj,"Listening on socket with a backlog of %d pending connection",backlog);
+    //通过listen函数监听输入连接只是简单地输入连接放进一个队列并等待应用程序显式地接受他们
+    if (-1==listen(sd,backlog)){
+        ThrowErrnoException(env,"java/io/IOException",errno);
+    }
+
+}
+
+static void LogAddress(JNIEnv* env,jobject obj,const char* message,const struct sockaddr_in* address){
+    char ip[INET_ADDRSTRLEN];
+    //将ip地址转换为字符串
+    if (NULL==inet_ntop(PF_INET,&(address->sin_addr),ip,INET_ADDRSTRLEN)){
+        ThrowErrnoException(env,"java/io/IOException",errno);
+    } else{
+        //将端口转换成主机字节顺序
+        unsigned short port=ntohs(address->sin_port);
+        //记录地址
+        LogMessage(env,obj,"%s %s:%hu.",message,ip,port);
+    }
+}
+
+static int AcceptOnSocket(JNIEnv* env,jobject obj,int sd){
+    struct sockaddr_in address;
+    socklen_t addressLength= sizeof(address);
+    //阻塞和等待进来的客户连接
+    //并且接受它
+    LogMessage(env,obj,"Waiting for a client connection...");
+    int clientSocket=accept(sd, (sockaddr *) &address, &addressLength);
+    //如果客户socket无效
+    if (-1==clientSocket){
+        ThrowErrnoException(env,"java/io/IOException",errno);
+    } else{
+        //记录地址
+        LogAddress(env,obj,"Client connection from ",&address);
+    }
+    return clientSocket;
+}
+
+static ssize_t ReceiveFromSocket(JNIEnv* env,jobject obj,int sd, char* buffer,size_t bufferSize){
+    //阻塞并接收来自socket的数据放进缓冲区
+    LogMessage(env,obj,"Receiving from the socket...");
+    ssize_t recvSize=recv(sd,buffer,bufferSize-1,0);
+    //如果接收失败
+    if (-1==recvSize){
+        ThrowErrnoException(env,"java/io/IOException",errno);
+    } else{
+        //以NULL结尾缓冲区形成一个字符串
+        buffer[recvSize]=NULL;
+        //如果接收成功
+        if (recvSize>0){
+            LogMessage(env,obj,"Receive %d bytes: %s",recvSize,buffer);
+        } else{
+            LogMessage(env,obj,"Client disconnected.");
+        }
+    }
+    return recvSize;
+
 }
