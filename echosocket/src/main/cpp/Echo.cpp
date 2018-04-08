@@ -1,6 +1,5 @@
 #include <jni.h>
 #include <string>
-
 #include <malloc.h>
 // va_list,vsnprintf
 #include <stdarg.h>
@@ -141,6 +140,9 @@ static int NewTcpSocket(JNIEnv* env,jobject obj){
     return tcpsocket;
 }
 
+/**
+ * 将socket绑定到某一端口号
+ */
 static void BindSocketToPort(JNIEnv* env,jobject obj,int sd, unsigned short port){
     struct sockaddr_in address;
     //绑定socket地址
@@ -159,6 +161,9 @@ static void BindSocketToPort(JNIEnv* env,jobject obj,int sd, unsigned short port
     }
 }
 
+/**
+ * 获取当前绑定的端口号socket
+ */
 static unsigned short GetSocketPort(JNIEnv* env,jobject obj,int sd){
     unsigned short port=0;
     struct sockaddr_in address;
@@ -173,6 +178,9 @@ static unsigned short GetSocketPort(JNIEnv* env,jobject obj,int sd){
     return port;
 }
 
+/**
+ * 监听指定的待处理连接的backlog的socket,当backlog已满时拒绝新的连接
+ */
 static void ListenOnSocket(JNIEnv* env,jobject obj,int sd,int backlog){
     //监听给定backlog的socket
     LogMessage(env,obj,"Listening on socket with a backlog of %d pending connection",backlog);
@@ -183,6 +191,9 @@ static void ListenOnSocket(JNIEnv* env,jobject obj,int sd,int backlog){
 
 }
 
+/**
+ * 记录给定地址的ip地址和端口号
+ */
 static void LogAddress(JNIEnv* env,jobject obj,const char* message,const struct sockaddr_in* address){
     char ip[INET_ADDRSTRLEN];
     //将ip地址转换为字符串
@@ -196,6 +207,9 @@ static void LogAddress(JNIEnv* env,jobject obj,const char* message,const struct 
     }
 }
 
+/**
+ * 在给定的socket上阻塞和等待进来的客户连接
+ */
 static int AcceptOnSocket(JNIEnv* env,jobject obj,int sd){
     struct sockaddr_in address;
     socklen_t addressLength= sizeof(address);
@@ -213,6 +227,9 @@ static int AcceptOnSocket(JNIEnv* env,jobject obj,int sd){
     return clientSocket;
 }
 
+/**
+ * 阻塞并接收来自socket的数据放进缓冲区
+ */
 static ssize_t ReceiveFromSocket(JNIEnv* env,jobject obj,int sd, char* buffer,size_t bufferSize){
     //阻塞并接收来自socket的数据放进缓冲区
     LogMessage(env,obj,"Receiving from the socket...");
@@ -232,4 +249,75 @@ static ssize_t ReceiveFromSocket(JNIEnv* env,jobject obj,int sd, char* buffer,si
     }
     return recvSize;
 
+}
+
+static ssize_t SendToSocket(JNIEnv* env,jobject obj,int sd,const char* buffer,size_t bufferSize){
+    //将数据缓冲区发送到socket
+    LogMessage(env,obj,"Sending to the socket...");
+    ssize_t sentSize=send(sd,buffer,bufferSize,0);
+    //如果发送失败
+    if (-1==sentSize){
+        //抛出带错误号的异常
+        ThrowErrnoException(env,"java/io/IOException",errno);
+    } else{
+        if (sentSize>0){
+            LogMessage(env,obj,"Sent %d bytes: %s",sentSize,buffer);
+        } else{
+            LogMessage(env,obj,"Client disconnected.");
+        }
+    }
+    return sentSize;
+}
+
+/*
+ * Class:     com_asdf_echosocket_EchoServerActivity
+ * Method:    nativeStartTcpServer
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoServerActivity_nativeStartTcpServer
+        (JNIEnv* env, jobject obj, jint port){
+    //构造新的tcp socket
+    int serverSocket=NewTcpSocket(env,obj);
+    if (NULL!=env->ExceptionOccurred()){
+        //将socket绑定到某端口号
+        BindSocketToPort(env,obj,serverSocket,port);
+        if (NULL!=env->ExceptionOccurred())
+            goto exit;
+        //如果请求了随机端口号
+        if (0==port){
+            //获取当前绑定的端口号socket
+            GetSocketPort(env,obj,serverSocket);
+            if (NULL!=env->ExceptionOccurred())
+                goto exit;
+        }
+        //监听4个等待连接的backlog的socket
+        ListenOnSocket(env,obj,serverSocket,4);
+        if (NULL!=env->ExceptionOccurred())
+            goto exit;
+        //接收socket的一个客户连接
+        int clientSocket=AcceptOnSocket(env,obj,serverSocket);
+        if (NULL!=env->ExceptionOccurred())
+            goto exit;
+        char buffer[MAX_BUFFER_SIZE];
+        ssize_t recvSize;
+        ssize_t sentSize;
+        //接收并发送回数据
+        while (1){
+            //从socket中接收
+            recvSize=ReceiveFromSocket(env,obj,clientSocket,buffer,MAX_BUFFER_SIZE);
+            if ((0==recvSize) || (NULL!=env->ExceptionOccurred()))
+                break;
+            //发送给socket
+            sentSize=SendToSocket(env,obj,clientSocket,buffer,(size_t)recvSize);
+            if ((0==sentSize)||(NULL!=env->ExceptionOccurred()))
+                break;
+        }
+        //关闭客户端socket
+        close(clientSocket);
+
+    }
+    exit:
+        if (serverSocket>0){
+            close(serverSocket);
+        }
 }
