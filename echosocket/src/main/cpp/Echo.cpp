@@ -29,13 +29,16 @@
 //offsetof
 #include <stddef.h>
 
+#include <android/log.h>
+#include "com_asdf_echosocket_EchoServerActivity.h"
+#include "com_asdf_echosocket_EchoClientActivity.h"
+
 //最大日志消息长度
 #define MAX_LOG_MESSAGE_LENGTH 256
 
 //最大数据缓冲区大小
 #define MAX_BUFFER_SIZE 80
-#include <android/log.h>
-#include "com_asdf_echosocket_EchoServerActivity.h"
+
 #define LOG_TAG "System.out.c"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -131,6 +134,7 @@ static void ThrowErrnoException(JNIEnv* env,const char* className,int errnum){
 static int NewTcpSocket(JNIEnv* env,jobject obj){
     //构造socket
     LogMessage(env,obj,"Constructing a new TCP socket...");
+    //8-7-1.png
     int tcpsocket=socket(PF_INET,SOCK_STREAM,0);
     //检查构造socket是否正常
     if (-1==tcpsocket){
@@ -320,4 +324,34 @@ JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoServerActivity_nativeStartTc
         if (serverSocket>0){
             close(serverSocket);
         }
+}
+
+static void ConnectToAddress(JNIEnv* env,jobject obj,
+                             int sd,const char* ip, unsigned short port){
+    //连接到给定的ip地址的给定的端口号
+    LogMessage(env,obj,"Connecting to %s:%uh...",ip,port);
+    struct sockaddr_in address;
+
+    memset(&address,0, sizeof(address));
+    address.sin_family=PF_INET;
+    //将IP地址字符串转化为网络地址
+    if (0==inet_aton(ip,&(address.sin_addr))){
+        ThrowErrnoException(env,"java/io/IOException",errno);
+    } else{
+        //将端口号转换为网络字节顺序
+        address.sin_port=htons(port);
+        //转换为地址
+        if (-1==connect(sd,(const sockaddr*)&address, sizeof(address))){
+            ThrowErrnoException(env,"java/io/IOException",errno);
+        } else{
+            LogMessage(env,obj,"Connected");
+        }
+    }
+
+}
+
+
+JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoClientActivity_nativeStartTcpClient
+        (JNIEnv* env, jobject obj, jstring ip, jint port, jstring message){
+
 }
