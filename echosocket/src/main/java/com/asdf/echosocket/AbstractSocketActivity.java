@@ -4,7 +4,6 @@ package com.asdf.echosocket;
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.PersistableBundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -29,21 +28,26 @@ public abstract class AbstractSocketActivity extends Activity implements View.On
     //日志视图
     protected TextView logView;
 
-    //布局ID
-    private final int layoutID;
+//    //布局ID
+//    private final int layoutID;
+//
+//    /**
+//     *
+//     * @param layoutID
+//     */
+//    public AbstractSocketActivity(int layoutID) {
+//        super();
+//        this.layoutID = layoutID;
+//    }
 
-    /**
-     *
-     * @param layoutID
-     */
-    protected AbstractSocketActivity(int layoutID) {
-        this.layoutID = layoutID;
+    protected int getLayoutId(){
+        return 0;
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState, PersistableBundle persistentState) {
-        super.onCreate(savedInstanceState, persistentState);
-        setContentView(layoutID);
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(getLayoutId());
         portEdit= ((EditText) findViewById(R.id.port_edit));
         startButton= ((Button) findViewById(R.id.start_button));
         logScroll= ((ScrollView) findViewById(R.id.log_scroll));

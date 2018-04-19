@@ -1,6 +1,5 @@
 package com.asdf.echosocket;
 
-import android.app.Activity;
 import android.os.Bundle;
 import android.widget.EditText;
 
@@ -11,12 +10,13 @@ public class EchoClientActivity extends AbstractSocketActivity {
     //消息编辑
     private EditText messageEdit;
 
-    public EchoClientActivity(){
-        super(R.layout.activity_echo_client);
+    @Override
+    protected int getLayoutId() {
+        return R.layout.activity_echo_client;
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ipEdit= (EditText) findViewById(R.id.ip_edit);
         messageEdit= (EditText) findViewById(R.id.message_edit);
@@ -29,13 +29,14 @@ public class EchoClientActivity extends AbstractSocketActivity {
         String message=messageEdit.getText().toString();
         if ((ip.length()!=0)&& (port!=null) && (message.length()!=0)){
             ClientTask clientTask=new ClientTask(ip,port,message);
+            clientTask.start();
         }
     }
 
     private native void nativeStartTcpClient(String ip,int port,String message)
             throws Exception;
 
-    private class ClientTask {
+    private class ClientTask extends AbstractEchoTask{
         //连接的ip地址
         String ip;
         //端口号

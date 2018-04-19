@@ -282,7 +282,7 @@ JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoServerActivity_nativeStartTc
         (JNIEnv* env, jobject obj, jint port){
     //构造新的tcp socket
     int serverSocket=NewTcpSocket(env,obj);
-    if (NULL!=env->ExceptionOccurred()){
+    if (NULL==env->ExceptionOccurred()){
         //将socket绑定到某端口号
         BindSocketToPort(env,obj,serverSocket,port);
         if (NULL!=env->ExceptionOccurred())
@@ -353,5 +353,41 @@ static void ConnectToAddress(JNIEnv* env,jobject obj,
 
 JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoClientActivity_nativeStartTcpClient
         (JNIEnv* env, jobject obj, jstring ip, jint port, jstring message){
+    //构造新的TCP socket
+    int clientSocket=NewTcpSocket(env,obj);
+    if (NULL==env->ExceptionOccurred()){
+        //以C字符串形式获取IP地址
+        const char* ipAddress=env->GetStringUTFChars(ip,NULL);
+        if (NULL==ipAddress)
+            goto exit;
 
+        //连接到IP地址和端口
+        ConnectToAddress(env,obj,clientSocket,ipAddress,(unsigned short)port);
+        //释放IP地址
+        env->ReleaseStringUTFChars(ip,ipAddress);
+        //如果连接成功
+        if (NULL!=env->ExceptionOccurred())
+            goto exit;
+        //以C字符串形式获取信息
+        const char* messageText=env->GetStringUTFChars(message,NULL);
+        if (NULL==messageText)
+            goto exit;
+        //获取消息大小
+        jsize messageSize=env->GetStringLength(message);
+        //发送消息给socket
+        SendToSocket(env,obj,clientSocket,messageText,messageSize);
+        //释放消息文本
+        env->ReleaseStringUTFChars(message,messageText);
+        //如果发送未成功
+        if (NULL!=env->ExceptionOccurred())
+            goto exit;
+        char buffer[MAX_BUFFER_SIZE];
+        //从socket接收
+        ReceiveFromSocket(env,obj,clientSocket,buffer,MAX_BUFFER_SIZE);
+    }
+
+    exit:
+        if (clientSocket>-1){
+            close(clientSocket);
+        }
 }

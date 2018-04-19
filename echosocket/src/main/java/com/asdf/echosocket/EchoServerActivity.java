@@ -1,17 +1,17 @@
 package com.asdf.echosocket;
 
 public class EchoServerActivity extends AbstractSocketActivity {
-
-
-    protected EchoServerActivity() {
-        super(R.layout.activity_echo_server);
+    @Override
+    protected int getLayoutId() {
+        return R.layout.activity_echo_server;
     }
 
     @Override
     protected void onStartButtonClicked() {
         Integer port=getPort();
         if (port!=null){
-
+            ServerTask serverTask=new ServerTask(port);
+            serverTask.start();
         }
     }
 
@@ -30,7 +30,7 @@ public class EchoServerActivity extends AbstractSocketActivity {
     private native void nativeStartUdpServer(int port) throws Exception;
 
 
-    private class ServerTask extends AbstractEchoTask{
+    private class ServerTask extends AbstractSocketActivity.AbstractEchoTask {
         //端口号
         private final int port;
 
