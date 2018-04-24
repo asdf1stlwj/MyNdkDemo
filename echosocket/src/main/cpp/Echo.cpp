@@ -102,7 +102,7 @@ static void LogMessage(JNIEnv* env,jobject obj,const char* format,...){
             //记录信息
             env->CallVoidMethod(obj,methodID,message);
             //释放消息应用
-            env->DeleteGlobalRef(message);
+            env->DeleteLocalRef(message);
         }
     }
 }

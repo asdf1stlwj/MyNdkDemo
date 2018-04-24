@@ -22,6 +22,12 @@ public class EchoClientActivity extends AbstractSocketActivity {
         messageEdit= (EditText) findViewById(R.id.message_edit);
     }
 
+
+    // adb -s <模拟器识别号> forward tcp:<pc端口号> tcp:<模拟器端口号>
+    //通过这条命令使数据通过端口号从pc转发到模拟器,实现与模拟器的通信
+    //模拟器识别号:端口转发需指定的socket服务端所在模拟器的识别号,可用adb devices查看当前连接的所有模拟器识别号
+    //pc端口号:模拟器的宿主的一个端口号,随便指定,只要该端口号没被占用即可,可用 netstat -an |findstr <端口号> 来确认改端口是否被占用
+    //模拟器端口号:这由之前的socket服务端决定,为socket服务端的socket绑定的端口号
     @Override
     protected void onStartButtonClicked() {
         String ip=ipEdit.getText().toString();
