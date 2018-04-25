@@ -42,7 +42,8 @@ public class EchoServerActivity extends AbstractSocketActivity {
         protected void onBackground() {
             logMessage("Starting Server");
             try {
-                nativeStartTcpServer(port);
+                //nativeStartTcpServer(port);
+                nativeStartUdpServer(port);
             }catch (Exception e){
                 logMessage(e.getMessage());
             }

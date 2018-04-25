@@ -4,6 +4,8 @@
 
 #ifndef _Included_com_asdf_ndkthread_MainActivity
 #define _Included_com_asdf_ndkthread_MainActivity
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif

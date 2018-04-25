@@ -391,3 +391,146 @@ JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoClientActivity_nativeStartTc
             close(clientSocket);
         }
 }
+
+    static int NewUdpSocket(JNIEnv* env,jobject obj){
+        //构造socket
+        LogMessage(env,obj,"Constructing a new UDP socket...");
+        int udpSocket=socket(PF_INET,SOCK_DGRAM,0);
+        //检查socket构造是否正确
+        if (-1==udpSocket){
+            //抛出带错误号的异常
+            ThrowErrnoException(env,"java/io/IOException",errno);
+        }
+        return udpSocket;
+    }
+
+    static ssize_t ReceiveDatagramFromSocket(JNIEnv* env,jobject obj,int sd,
+                                             struct sockaddr_in* address,
+                                             char* buffer,size_t bufferSize){
+        socklen_t addressLength= sizeof(struct sockaddr_in);
+
+        //从socket中接收数据
+        LogMessage(env,obj,"Receiving from the socket...");
+        ssize_t recvSize=recvfrom(sd,buffer,bufferSize,0,(struct sockaddr*)address,&addressLength);
+        //如果接收失败
+        if (-1==recvSize){
+            ThrowErrnoException(env,"java/io/IOException",errno);
+        } else{
+            //记录地址
+            LogAddress(env,obj,"Received from",address);
+            //以NULL终止缓冲区使其成为一个字符串
+            buffer[recvSize]=NULL;
+            //如果数据已经接收
+            if (recvSize>0){
+                LogMessage(env,obj,"Received %d bytes: %s",recvSize,buffer);
+            }
+            return recvSize;
+        }
+    }
+
+    static ssize_t SendDatagramToSocket(JNIEnv* env,jobject obj,int sd,
+                                        const struct sockaddr_in* address,
+                                        const char* buffer,size_t bufferSize){
+        //向socket发送数据缓冲区
+        LogAddress(env,obj,"Sending to",address);
+        ssize_t  sentSize=sendto(sd, buffer, bufferSize, 0,
+                                 (const sockaddr *) address,
+                                 sizeof(struct sockaddr_in));
+        //如果发送失败
+        if (-1==sentSize){
+            ThrowErrnoException(env,"java/io/IOException",errno);
+        } else if (sentSize>0){
+            LogMessage(env,obj,"Sent %d bytes: %s",sentSize,buffer);
+        }
+        return sentSize;
+    }
+
+JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoServerActivity_nativeStartUdpServer
+        (JNIEnv* env, jobject obj, jint port){
+    //构造一个新的udp socket
+    int serverSocket=NewUdpSocket(env,obj);
+    if (NULL==env->ExceptionOccurred()){
+        //将socket绑定到某一端口号
+        BindSocketToPort(env,obj,serverSocket,(unsigned short)port);
+        if (NULL!=env->ExceptionOccurred()){
+            goto exit;
+        }
+        //如果请求随机端口号
+        if (0==port){
+            //获取当前绑定的端口号socket
+            GetSocketPort(env,obj,serverSocket);
+            if (NULL!=env->ExceptionOccurred()){
+                goto exit;
+            }
+        }
+        //客户端地址
+        struct sockaddr_in address;
+        memset(&address,0, sizeof(address));
+        char buffer[MAX_BUFFER_SIZE];
+        ssize_t recvSize;
+        ssize_t sentSize;
+        //从socket中接收
+        recvSize=ReceiveDatagramFromSocket(env,obj,serverSocket,
+                                           &address,buffer,MAX_BUFFER_SIZE);
+        if ((0==recvSize)||(NULL!=env->ExceptionOccurred()))
+            goto exit;
+
+        //发送给socket
+        sentSize=SendDatagramToSocket(env,obj,serverSocket,&address,buffer,(size_t)recvSize);
+    }
+    exit:
+        if (serverSocket>0){
+            close(serverSocket);
+        }
+
+
+}
+
+JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoClientActivity_nativeStartUdpClient
+        (JNIEnv* env, jobject obj, jstring ip, jint port, jstring message){
+    //构造一个新的UDP socket
+    int clientSocket=NewUdpSocket(env,obj);
+    if (NULL==env->ExceptionOccurred()){
+        struct sockaddr_in address;
+        memset(&address,0, sizeof(address));
+        address.sin_family=PF_INET;
+        //以C字符串形式获取IP地址
+        const char* ipAddress=env->GetStringUTFChars(ip,NULL);
+        if (NULL==ipAddress)
+            goto exit;
+        //将IP地址字符串转换为网络地址
+        int result=inet_aton(ipAddress,&(address.sin_addr));
+        //释放IP地址
+        env->ReleaseStringUTFChars(ip,ipAddress);
+        //如果转换失败
+        if (0==result){
+            ThrowErrnoException(env,"java/io/IOException",errno);
+            goto exit;
+        }
+        //将端口转换为网络字节顺序
+        address.sin_port=htons(port);
+
+        //以c字符串形式获取信息
+        const char* messageText=env->GetStringUTFChars(message,NULL);
+        if (NULL==messageText)
+            goto exit;
+        //获取消息大小
+        jsize messageSize=env->GetStringUTFLength(message);
+        //发送消息给socket
+        SendDatagramToSocket(env,obj,clientSocket,&address,messageText,messageSize);
+        //释放消息文本
+        env->ReleaseStringUTFChars(message,messageText);
+        //如果发送未成功
+        if (NULL!=env->ExceptionOccurred())
+            goto exit;
+        char buffer[MAX_BUFFER_SIZE];
+        //清除地址
+        memset(&address,0, sizeof(address));
+        //从socket接收
+        ReceiveDatagramFromSocket(env,obj,clientSocket,&address,buffer,MAX_BUFFER_SIZE);
+    }
+    exit:
+        if (clientSocket>0){
+            close(clientSocket);
+        }
+}

@@ -7,6 +7,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#undef com_asdf_echosocket_EchoClientActivity_ClientTask_MIN_PRIORITY
+#define com_asdf_echosocket_EchoClientActivity_ClientTask_MIN_PRIORITY 1L
+#undef com_asdf_echosocket_EchoClientActivity_ClientTask_NORM_PRIORITY
+#define com_asdf_echosocket_EchoClientActivity_ClientTask_NORM_PRIORITY 5L
+#undef com_asdf_echosocket_EchoClientActivity_ClientTask_MAX_PRIORITY
+#define com_asdf_echosocket_EchoClientActivity_ClientTask_MAX_PRIORITY 10L
 #ifdef __cplusplus
 }
 #endif

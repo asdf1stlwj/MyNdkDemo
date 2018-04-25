@@ -42,6 +42,9 @@ public class EchoClientActivity extends AbstractSocketActivity {
     private native void nativeStartTcpClient(String ip,int port,String message)
             throws Exception;
 
+    private native void nativeStartUdpClient(String ip,int port,String message)
+            throws Exception;
+
     private class ClientTask extends AbstractEchoTask{
         //连接的ip地址
         String ip;
