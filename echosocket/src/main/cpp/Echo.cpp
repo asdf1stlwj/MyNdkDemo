@@ -32,7 +32,7 @@
 #include <android/log.h>
 #include "com_asdf_echosocket_EchoServerActivity.h"
 #include "com_asdf_echosocket_EchoClientActivity.h"
-
+#include "com_asdf_echosocket_LocalSocketActivity.h"
 //最大日志消息长度
 #define MAX_LOG_MESSAGE_LENGTH 256
 
@@ -533,4 +533,70 @@ JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoClientActivity_nativeStartUd
         if (clientSocket>0){
             close(clientSocket);
         }
+}
+
+ //构造一个新的原生UNIX socket
+ static int NewLocalSocket(JNIEnv* env,jobject obj){
+     //构造socket
+     LogMessage(env,obj,"Constructing a new Local UNIX socket..");
+     int localsocket=socket(PF_LOCAL,SOCK_STREAM,0);
+     //检查socket构造是否正确
+     if (-1==localsocket){
+         ThrowErrnoException(env,"java/io/IOException",errno);
+     }
+     return localsocket;
+ }
+
+ static void BindLocalSocketToName(JNIEnv* env,jobject obj,
+                                   int sd,const char* name){
+     struct sockaddr_un address;
+     //名字长度
+     const size_t nameLength=strlen(name);
+     //路径长度初始化与名称长度相等
+     size_t pathLength=nameLength;
+     //如果名字不是以"/"开头,那它在抽象命名空间里
+     bool abstractNamespace=('/'!=name[0]);
+     //抽象命名空间要求目录的第一个字节是0字节,更新路径长度包括0字节
+     if (abstractNamespace){
+         pathLength++;
+     }
+     //检查路径长度
+     if (pathLength> sizeof(address.sun_path)){
+         ThrowException(env,"java/io/IOException","Name is too big");
+     } else{
+         //清除地址字节
+         memset(&address,0, sizeof(address));
+         address.sun_family=PF_LOCAL;
+         //Socket路径
+         char* sunPath=address.sun_path;
+         //第一字节必须是0以使用抽象命名空间
+         if (abstractNamespace){
+             *sunPath++=NULL;
+         }
+         //追加本地名字
+         strcpy(sunPath,name);
+         //地址长度
+         socklen_t addressLength=(offsetof(struct sockaddr_un,sun_path))+pathLength;
+         //如果socket名已经绑定,取消连接
+         unlink(address.sun_path);
+         //绑定socket
+         LogMessage(env,obj,"Binding to local name %s%s.",(abstractNamespace)?"(null)":"");
+         if (-1==bind(sd, (struct sockaddr *) &address, addressLength)){
+             ThrowErrnoException(env,"java/io/IOException",errno);
+         }
+     }
+ }
+    static int AcceptOnLocalSocket(JNIEnv* env,jobject obj,int sd){
+        //阻塞并等待即将到来的客户端连接并且接受它
+        LogMessage(env,obj,"Waiting for a client connection...");
+        int clientSocket=accept(sd,NULL,NULL);
+        //如果客户端socket无效
+        if (-1==clientSocket){
+            ThrowErrnoException(env,"java/io/IOException",errno);
+        }
+        return clientSocket;
+    }
+JNIEXPORT void JNICALL Java_com_asdf_echosocket_LocalSocketActivity_nativeStartLocalServer
+        (JNIEnv* env, jobject obj, jstring name){
+
 }
