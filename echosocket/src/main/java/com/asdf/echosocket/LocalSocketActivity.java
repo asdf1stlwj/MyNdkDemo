@@ -15,7 +15,7 @@ public class LocalSocketActivity extends AbstractSocketActivity {
 
     @Override
     protected int getLayoutId() {
-        return R.layout.activity_echo_client;
+        return R.layout.activity_local_socket;
     }
 
     @Override

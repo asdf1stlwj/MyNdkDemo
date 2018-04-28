@@ -598,5 +598,48 @@ JNIEXPORT void JNICALL Java_com_asdf_echosocket_EchoClientActivity_nativeStartUd
     }
 JNIEXPORT void JNICALL Java_com_asdf_echosocket_LocalSocketActivity_nativeStartLocalServer
         (JNIEnv* env, jobject obj, jstring name){
+    //构造一个新的本地UNIX socket
+    int serverSocket =NewLocalSocket(env,obj);
+    if(NULL==env->ExceptionOccurred()){
+        //以c字符串的形式获取名称
+        const char* nameText=env->GetStringUTFChars(name,NULL);
+        if (NULL==nameText)
+            goto exit;
+        //绑定socket到某一端口号
+        BindLocalSocketToName(env,obj,serverSocket,nameText);
+        //释放name文本
+        env->ReleaseStringUTFChars(name,nameText);
+        //如果绑定失败
+        if (NULL!=env->ExceptionOccurred())
+            goto exit;
+        //监听有4个挂起连接的带backlog的socket
+        ListenOnSocket(env,obj,serverSocket,4);
+        if (NULL!=env->ExceptionOccurred())
+            goto exit;
+        //接收socket的一个客户连接
+        int clientSocket=AcceptOnLocalSocket(env,obj,serverSocket);
+        if (NULL!=env->ExceptionOccurred())
+            goto exit;
+        char buffer[MAX_BUFFER_SIZE];
+        ssize_t recvSize;
+        ssize_t sentSize;
+        //接收并发送回数据
+        while (1){
+            //从socket中接收
+            recvSize=ReceiveFromSocket(env,obj,clientSocket,buffer,MAX_BUFFER_SIZE);
+            if ((0==recvSize)||(NULL!=env->ExceptionOccurred()))
+                break;
+            //发送给socket
+            sentSize=SendToSocket(env,obj,clientSocket,buffer,(size_t)recvSize);
+            if ((0==sentSize)||(NULL!=env->ExceptionOccurred()))
+                break;
+        }
+        //关闭客户端socket
+        close(clientSocket);
 
+    }
+    exit:
+    if (serverSocket>0){
+        close(serverSocket);
+    }
 }

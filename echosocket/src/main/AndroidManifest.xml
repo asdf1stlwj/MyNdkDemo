@@ -13,13 +13,15 @@
         <activity android:name=".EchoServerActivity">
         </activity>
         <activity android:name=".EchoClientActivity">
+
+        </activity>
+        <activity android:name=".LocalSocketActivity">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-        </activity>
-        <activity android:name=".LocalSocketActivity">
         </activity>
     </application>
 
